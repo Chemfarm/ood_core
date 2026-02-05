@@ -85,6 +85,49 @@ module OodCore
             @bin_overrides        = bin_overrides
           end
 
+          # Get a ClusterInfo object containing information about the given cluster
+          # @return [ClusterInfo] object containing cluster details
+          def get_cluster_info
+            data = JSON.parse(call("pbsnodes", "-aSj", "-F", "json"))
+            nodes_h = data.fetch("nodes", {})
+
+            parse_ft = lambda do |s|
+              m = s.to_s.strip.match(/\A(\d+)\s*\/\s*(\d+)\z/)
+              m ? [m[1].to_i, m[2].to_i] : [0, 0]
+            end
+
+            hosts_busy = Set.new
+            hosts_all = Set.new
+
+            free_ncpus = total_ncpus = 0
+            free_gpus  = total_gpus  = 0
+
+            nodes_h.each do |name, info|
+
+              hosts_all << host
+
+              f_c, t_c = parse_ft.call(info["ncpus f/t"])
+              f_g, t_g = parse_ft.call(info["ngpus f/t"])
+
+              hosts_busy << host if f_c == 0 || (f_g == 0 && t_g > 0)
+
+              free_ncpus  += f_c
+              total_ncpus += t_c
+              free_gpus   += f_g
+              total_gpus  += t_g
+            end
+
+            ClusterInfo.new(
+              active_nodes: hosts_busy.size,
+              total_nodes: hosts_all.size,
+              active_processors: total_ncpus - free_ncpus,
+              total_processors: total_ncpus,
+              active_gpus: total_gpus - free_gpus,
+              total_gpus: total_gpus
+            )
+          end
+
+
           # Get a list of hashes detailing each of the jobs on the batch server
           # @example Status info for all jobs
           #   my_batch.get_jobs
@@ -298,6 +341,13 @@ module OodCore
         rescue Batch::Error => e
           raise JobAdapterError, e.message
         end
+
+        # Retrieve info about active and total cpus, gpus, and nodes
+        # @return [Hash] information about cluster usage
+        def cluster_info
+          @pbspro.get_cluster_info
+        end
+
 
         # Retrieve info for all jobs from the resource manager
         # @raise [JobAdapterError] if something goes wrong getting job info
