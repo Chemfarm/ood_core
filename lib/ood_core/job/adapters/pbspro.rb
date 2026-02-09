@@ -104,11 +104,10 @@ module OodCore
 
             nodes_h.each do |name, info|
 
-              hosts_all << host
-
               f_c, t_c = parse_ft.call(info["ncpus f/t"])
               f_g, t_g = parse_ft.call(info["ngpus f/t"])
 
+              hosts_all  << host
               hosts_busy << host if f_c == 0 || (f_g == 0 && t_g > 0)
 
               free_ncpus  += f_c
@@ -126,7 +125,6 @@ module OodCore
               total_gpus: total_gpus
             )
           end
-
 
           # Get a list of hashes detailing each of the jobs on the batch server
           # @example Status info for all jobs
@@ -347,7 +345,6 @@ module OodCore
         def cluster_info
           @pbspro.get_cluster_info
         end
-
 
         # Retrieve info for all jobs from the resource manager
         # @raise [JobAdapterError] if something goes wrong getting job info
